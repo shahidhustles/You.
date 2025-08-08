@@ -1,7 +1,8 @@
 "use client";
-import React, { useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import React, { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import TimeBlock from "@/components/diary/time-block";
+import { InspirationCard } from "@/components/diary/inspiration-card";
 
 function useGreeting() {
   const h = new Date().getHours();
@@ -11,32 +12,10 @@ function useGreeting() {
   return "good night.";
 }
 
-const hours = Array.from({ length: 24 }, (_, i) => i);
-// 4 columns * 6 hour blocks
-const timeBlockColumns = [0, 6, 12, 18];
-
-// Hard‑coded sample events (will be wired to calendar later)
-const sampleEvents: {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-}[] = [
-  { id: "1", title: "Breakfast & Plan", start: "07:30", end: "08:15" },
-  { id: "2", title: "Focus Sprint", start: "09:00", end: "10:30" },
-  { id: "3", title: "Team Sync", start: "11:00", end: "11:30" },
-  { id: "4", title: "Deep Work", start: "13:00", end: "15:00" },
-  { id: "5", title: "Workout", start: "18:30", end: "19:30" },
-];
-
-function parseHM(t: string) {
-  const [h, m] = t.split(":").map(Number);
-  return h + m / 60;
-}
-
 function TodayPage() {
   const greeting = useGreeting();
   const today = useMemo(() => new Date(), []);
+  const [selectedDay, setSelectedDay] = useState<Date>(today);
 
   const weekDays = useMemo(() => {
     const start = new Date(today);
@@ -49,8 +28,6 @@ function TodayPage() {
     });
   }, [today]);
 
-  const activeHour = today.getHours() + today.getMinutes() / 60;
-
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
@@ -58,9 +35,11 @@ function TodayPage() {
           {greeting}
         </h1>
         {/* Week scroller */}
-        <div className="mx-auto w-full max-w-4xl overflow-x-auto rounded-md border border-zinc-800 bg-zinc-900 text-zinc-200 shadow-sm">
-          <div className="flex min-w-[52rem] divide-x divide-zinc-800 text-xs text-zinc-400">
+        <div className="mx-auto w-full max-w-4xl overflow-x-auto rounded-md border border-zinc-800 bg-transparent text-zinc-200">
+          <div className="flex min-w-[52rem] text-xs">
             {weekDays.map((d) => {
+              const isSelected =
+                d.toDateString() === selectedDay.toDateString();
               const isToday = d.toDateString() === today.toDateString();
               const short = d
                 .toLocaleDateString(undefined, { weekday: "short" })
@@ -69,12 +48,24 @@ function TodayPage() {
                 <button
                   key={d.toISOString()}
                   className={cn(
-                    "flex flex-1 flex-col items-center justify-center gap-1 py-4 transition-colors",
-                    isToday && "bg-zinc-100 text-zinc-900 font-semibold"
+                    "relative flex flex-1 flex-col items-center justify-center gap-1 py-3 transition-colors focus:outline-none",
+                    "border-r border-zinc-800 first:border-l",
+                    isSelected
+                      ? "text-zinc-100 font-semibold"
+                      : "text-zinc-500 hover:text-zinc-300",
+                    isToday && !isSelected && "text-zinc-300"
                   )}
+                  onClick={() => setSelectedDay(d)}
                 >
-                  <span className="uppercase tracking-wide">{short}</span>
-                  <span className="text-sm">{d.getDate()}</span>
+                  <span className="uppercase tracking-wide text-[10px]">
+                    {short}
+                  </span>
+                  <span className="text-sm tabular-nums leading-none">
+                    {d.getDate()}
+                  </span>
+                  {isSelected && (
+                    <span className="pointer-events-none absolute inset-x-2 -bottom-0.5 h-0.5 rounded bg-zinc-100" />
+                  )}
                 </button>
               );
             })}
@@ -83,96 +74,78 @@ function TodayPage() {
       </header>
 
       {/* Time Blocks Container */}
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
-        <h2 className="mb-4 font-semibold">Time Blocks</h2>
-        <div className="grid grid-cols-4 gap-4">
-          {timeBlockColumns.map((start) => {
-            const end = start + 6;
-            return (
-              <div
-                key={start}
-                className="relative flex h-72 flex-col rounded-lg border border-zinc-800 bg-zinc-900/50 p-2 text-xs"
-              >
-                <div className="mb-1 text-center text-[10px] font-medium tracking-wide text-zinc-500">
-                  {start}:00 - {end}:00
-                </div>
-                <div className="relative flex-1">
-                  {/* Background hour grid */}
-                  {hours
-                    .filter((h) => h >= start && h < end)
-                    .map((h) => (
-                      <div
-                        key={h}
-                        className="absolute left-0 right-0 border-b border-dashed border-zinc-800"
-                        style={{ top: `${((h - start) / 6) * 100}%` }}
-                      />
-                    ))}
-                  {/* Events */}
-                  {sampleEvents
-                    .filter((e) => {
-                      const s = parseHM(e.start);
-                      return s >= start && s < end;
-                    })
-                    .map((e) => {
-                      const s = parseHM(e.start);
-                      const f = parseHM(e.end);
-                      const top = ((s - start) / 6) * 100;
-                      const height = ((f - s) / 6) * 100;
-                      const active = activeHour >= s && activeHour < f;
-                      return (
-                        <div
-                          key={e.id}
-                          className={cn(
-                            "absolute left-1 right-1 rounded-md border px-2 py-1 text-[10px] font-medium shadow-sm",
-                            active
-                              ? "bg-zinc-100 text-zinc-900 border-zinc-300"
-                              : "bg-zinc-800/70 text-zinc-200 border-zinc-700"
-                          )}
-                          style={{ top: `${top}%`, height: `${height}%` }}
-                        >
-                          <div className="line-clamp-3 leading-tight">
-                            {e.title}
-                          </div>
-                          <div className="mt-0.5 text-[9px] font-normal opacity-70">
-                            {e.start} – {e.end}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  {/* Active indicator line if inside this block */}
-                  {activeHour >= start && activeHour < end && (
-                    <div
-                      className="pointer-events-none absolute left-0 right-0 h-0.5 -translate-y-1/2 bg-zinc-100"
-                      style={{ top: `${((activeHour - start) / 6) * 100}%` }}
-                    />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      <TimeBlock date={selectedDay} />
 
-      {/* Reflection */}
-      <section className="py-14 text-center">
-        <div className="mx-auto w-full max-w-3xl rounded-xl border border-zinc-800 bg-zinc-950/60 px-10 py-8 text-sm leading-relaxed shadow-sm backdrop-blur-sm">
-          <p className="mb-1 font-semibold text-zinc-100">
-            on minding the business.
-          </p>
-          <p className="mb-4 text-[11px] uppercase tracking-wide text-zinc-500">
-            Day 5 of 7
-          </p>
-          <p className="text-sm">
-            How would your life look different if you spent more time minding
-            your own business?
-          </p>
+      {/* Inspiration Cards */}
+      <section className="py-14">
+        <div className="mx-auto w-full max-w-7xl">
+          <h2 className="mb-8 text-center text-xl font-semibold text-zinc-100 tracking-tight">
+            GET INSPIRED
+          </h2>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Daily Affirmation Card */}
+            <InspirationCard
+              title="Daily Affirmation"
+              content="The peace that I need is inside me."
+              buttonText="Embrace the Thought"
+              icon={
+                <svg
+                  className="h-6 w-6 text-zinc-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+              }
+            />
+
+            {/* Journal Prompt Card */}
+            <InspirationCard
+              title="Journal Prompt"
+              content="Is there something from your past that you miss but is no longer part of your life?"
+              buttonText="Write It Out"
+              icon={
+                <svg
+                  className="h-6 w-6 text-zinc-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="m9 12 2 2 4-4" />
+                  <path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" />
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                </svg>
+              }
+            />
+
+            {/* Quote Card */}
+            <InspirationCard
+              title="Inspiring Quote"
+              content="&ldquo;You can discover more about a person in an hour of play than in a year of conversation.&rdquo;"
+              buttonText="Explore More"
+              icon={
+                <svg
+                  className="h-6 w-6 text-zinc-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+                </svg>
+              }
+            />
+          </div>
         </div>
-        <Button
-          variant="default"
-          className="mt-8 w-44 rounded-full bg-zinc-100 text-zinc-900 font-medium tracking-wide hover:bg-white focus-visible:ring-zinc-400/40"
-        >
-          Reflect
-        </Button>
       </section>
 
       {/* Quote */}

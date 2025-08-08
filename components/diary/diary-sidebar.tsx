@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, BookOpen, Compass, Search } from "lucide-react";
+import { CalendarDays, Compass, Search, BookOpen } from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
@@ -71,8 +71,8 @@ export const DiarySidebar: React.FC<DiarySidebarProps> = ({
                 icon={<CalendarDays className="size-4" />}
               />
               <NavItem
-                href="/diary/library"
-                label="Library"
+                href="/diary/space"
+                label="Space"
                 icon={<BookOpen className="size-4" />}
               />
               <NavItem
