@@ -1,8 +1,12 @@
 "use client";
-import React from "react";
-import { Wind, Leaf, ChevronRight } from "lucide-react";
+import React, { useCallback, useState } from "react";
+import { Wind, Leaf, ChevronRight, Loader2 } from "lucide-react";
 import GlareHover from "@/components/ui/glare-hover";
 import { motion } from "motion/react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 type LibraryCard = {
   key: string;
@@ -17,6 +21,11 @@ const baseCardClasses =
   "group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/70 backdrop-blur-sm text-zinc-100 shadow-sm transition-colors hover:border-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500";
 
 const LibraryPage = () => {
+  const router = useRouter();
+  const { user, isLoaded } = useUser();
+  const createJournal = useMutation(api.journals.createJournal);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+
   const cards: LibraryCard[] = [
     {
       key: "daily",
@@ -74,6 +83,48 @@ const LibraryPage = () => {
     },
   ];
 
+  const computePrompt = useCallback((card: LibraryCard) => {
+    const base = (card.title || "").replace(/\n/g, " ");
+    // Simple defaults per key; tweak as desired
+    const map: Record<string, string> = {
+      daily: "Daily check-in for the day",
+      gratitude: "Write a few things you're grateful for today",
+      mood: "How are you feeling right now?",
+      goals: "Set your intentions and goals",
+      arts: "Sketch ideas or reflect on a creative moment",
+      memories: "Capture a memory or milestone",
+      philosophy: "Explore a big thought or question",
+      connections: "Reflect on someone who shaped your day",
+    };
+    return map[card.key] ?? base;
+  }, []);
+
+  const onCardClick = useCallback(
+    async (card: LibraryCard) => {
+      if (card.key === "breathing" || card.key === "meditation") return;
+      if (!isLoaded || !user) return;
+
+      try {
+        setLoadingKey(card.key);
+        const prompt = computePrompt(card);
+        const id = await createJournal({
+          title: card.title,
+          prompt,
+          isCustomPrompt: true,
+          userId: user.id,
+        });
+        const params = new URLSearchParams({
+          tag: card.key,
+          prompt,
+        }).toString();
+        router.push(`/journal/${id}?${params}`);
+      } finally {
+        setLoadingKey(null);
+      }
+    },
+    [computePrompt, createJournal, isLoaded, router, user]
+  );
+
   return (
     <main className="h-screen w-full overflow-y-auto px-4 py-6 md:px-8">
       <header className="mb-8">
@@ -96,14 +147,27 @@ const LibraryPage = () => {
       </header>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-4 auto-rows-[180px] md:auto-rows-[240px] pb-8">
         {cards.map((c) => (
-          <LibraryGridCard key={c.key} data={c} />
+          <LibraryGridCard
+            key={c.key}
+            data={c}
+            loading={loadingKey === c.key}
+            onClick={() => onCardClick(c)}
+          />
         ))}
       </div>
     </main>
   );
 };
 
-const LibraryGridCard = ({ data }: { data: LibraryCard }) => {
+const LibraryGridCard = ({
+  data,
+  loading,
+  onClick,
+}: {
+  data: LibraryCard;
+  loading?: boolean;
+  onClick?: () => void;
+}) => {
   const { key, title, description, span, icon } = data;
   const centerIcon = !!icon && (key === "breathing" || key === "meditation");
   return (
@@ -119,7 +183,9 @@ const LibraryGridCard = ({ data }: { data: LibraryCard }) => {
         layout
         whileHover={{ y: -4 }}
         whileTap={{ scale: 0.97 }}
-        className="flex h-full w-full flex-col items-start justify-between bg-transparent p-6 text-left"
+        className="flex h-full w-full flex-col items-start justify-between bg-transparent p-6 text-left disabled:opacity-70"
+        disabled={loading}
+        onClick={onClick}
       >
         <div className="space-y-3">
           <motion.h3
@@ -142,14 +208,14 @@ const LibraryGridCard = ({ data }: { data: LibraryCard }) => {
               transition={{ duration: 0.4 }}
               className={`pointer-events-none absolute flex h-14 w-14 items-center justify-center rounded-full bg-zinc-800/30 text-zinc-400/60 opacity-60 transition-colors group-hover:bg-zinc-700/40 group-hover:opacity-90 ${centerIcon ? "bottom-0 left-1/2 -translate-x-1/2" : "bottom-0 right-0"}`}
             >
-              {icon}
+              {loading ? <Loader2 className="size-6 animate-spin" /> : icon}
             </motion.div>
           )}
           <motion.div
             className="pointer-events-none absolute right-2 top-2 text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100"
             initial={false}
           >
-            <ChevronRight className="size-4" />
+            {!loading && <ChevronRight className="size-4" />}
           </motion.div>
         </div>
       </motion.button>

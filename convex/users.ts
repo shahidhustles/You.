@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
 
 // ============ USER MANAGEMENT ============
 
@@ -40,7 +41,6 @@ export const getOrCreateUser = mutation({
 
     // Initialize user streak record
     await ctx.db.insert("userStreaks", {
-      userId,
       clerkUserId: args.clerkUserId,
       currentStreak: 0,
       longestStreak: 0,
@@ -130,7 +130,6 @@ export const startOnboarding = mutation({
     }
 
     const responseId = await ctx.db.insert("onboardingResponses", {
-      userId: user._id,
       clerkUserId: args.clerkUserId,
       currentStep: 0,
       createdAt: Date.now(),
@@ -483,3 +482,23 @@ export const getUserDashboardData = query({
     };
   },
 });
+
+// ============ HELPER FUNCTIONS ============
+
+/**
+ * Get current authenticated user
+ * Helper function for other Convex functions
+ */
+export const getCurrentUser = async (ctx: QueryCtx | MutationCtx) => {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    return null;
+  }
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", identity.subject))
+    .unique();
+
+  return user;
+};

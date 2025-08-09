@@ -2,7 +2,13 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Compass, Search, BookOpen } from "lucide-react";
+import {
+  CalendarDays,
+  Compass,
+  Search,
+  BookOpen,
+  ScrollText,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
@@ -24,22 +30,46 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 function NavItem({
   href,
   label,
   icon,
+  activeWhenStartsWith,
+  onClick,
 }: {
-  href: string;
+  href?: string;
   label: string;
   icon: React.ReactNode;
+  activeWhenStartsWith?: string;
+  onClick?: () => void;
 }) {
   const pathname = usePathname();
-  const active = pathname === href;
+  const active =
+    (href && pathname === href) ||
+    (activeWhenStartsWith ? pathname.startsWith(activeWhenStartsWith) : false);
+
+  if (onClick) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton isActive={active} tooltip={label} onClick={onClick}>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-base leading-none">{icon}</span>
+            <span>{label}</span>
+          </div>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
+
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={active} tooltip={label}>
-        <Link href={href} className="flex items-center gap-2 mt-2">
+        <Link href={href!} className="flex items-center gap-2 mt-2">
           <span className="text-base leading-none">{icon}</span>
           <span>{label}</span>
         </Link>
@@ -57,7 +87,25 @@ export const DiarySidebar: React.FC<DiarySidebarProps> = ({
 }) => {
   const { isLoaded, user } = useUser();
   const { signOut } = useClerk();
+  const router = useRouter();
+  const [isCreatingJournal, setIsCreatingJournal] = useState(false);
+  const createJournal = useMutation(api.journals.createJournal);
+
   const displayName = `${user?.firstName} ${user?.lastName}` || firstName || "";
+
+  const handleCreateJournal = async () => {
+    if (!user || isCreatingJournal) return;
+
+    setIsCreatingJournal(true);
+    try {
+      const journalId = await createJournal({ userId: user.id });
+      router.push(`/journal/${journalId}`);
+    } catch (error) {
+      console.error("Failed to create journal:", error);
+    } finally {
+      setIsCreatingJournal(false);
+    }
+  };
   return (
     <Sidebar
       collapsible="icon"
@@ -90,6 +138,18 @@ export const DiarySidebar: React.FC<DiarySidebarProps> = ({
                 href="/diary/space"
                 label="Space"
                 icon={<BookOpen className="size-4" />}
+              />
+              <NavItem
+                label={isCreatingJournal ? "Creating..." : "New Journal"}
+                icon={
+                  isCreatingJournal ? (
+                    <div className="animate-spin size-4 border-2 border-current border-t-transparent rounded-full" />
+                  ) : (
+                    <ScrollText className="size-4" />
+                  )
+                }
+                activeWhenStartsWith="/journal"
+                onClick={handleCreateJournal}
               />
               <NavItem
                 href="/diary/journey"
