@@ -1,4 +1,5 @@
 import React from "react";
+import type { Metadata } from "next";
 import {
   SidebarProvider,
   SidebarInset,
@@ -6,6 +7,15 @@ import {
 } from "@/components/ui/sidebar";
 
 import { DiarySidebar } from "@/components/diary/diary-sidebar";
+
+export const metadata: Metadata = {
+  title: {
+    template: "%s | Journal",
+    default: "Journal",
+  },
+  description:
+    "Express yourself freely with You. - your personal journaling space to capture thoughts, emotions, and insights with rich text editing and AI-powered prompts.",
+};
 
 export default function JournalLayout({
   children,

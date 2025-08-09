@@ -1,4 +1,5 @@
 import React from "react";
+import type { Metadata } from "next";
 import {
   SidebarProvider,
   SidebarInset,
@@ -7,6 +8,15 @@ import {
 
 import { DiarySidebar } from "@/components/diary/diary-sidebar";
 import FloatingAIOrb from "@/components/ai/floating-ai-orb";
+
+export const metadata: Metadata = {
+  title: {
+    template: "%s | Diary",
+    default: "Diary",
+  },
+  description:
+    "Your personal diary space in You. - track your daily journey, explore mindful moments, and discover insights through journaling, meditation, and breathing exercises.",
+};
 
 export default function DiaryLayout({
   children,
@@ -24,8 +34,8 @@ export default function DiaryLayout({
           </div>
           {children}
         </div>
-  {/* Floating AI Orb, always bottom-right */}
-  <FloatingAIOrb />
+        {/* Floating AI Orb, always bottom-right */}
+        <FloatingAIOrb />
       </SidebarInset>
     </SidebarProvider>
   );
