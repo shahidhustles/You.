@@ -16,7 +16,7 @@ export function InspirationCard({
   content,
   buttonText,
   icon,
-  redirectTo = "/diary/library",
+  redirectTo = "/diary/space",
 }: InspirationCardProps) {
   const router = useRouter();
 

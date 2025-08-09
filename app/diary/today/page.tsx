@@ -3,6 +3,12 @@ import React, { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import TimeBlock from "@/components/diary/time-block";
 import { InspirationCard } from "@/components/diary/inspiration-card";
+import StreakWidget, {
+  StreakWidgetSkeleton,
+} from "@/components/diary/streak-widget";
+import { useUser } from "@clerk/nextjs";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 function useGreeting() {
   const h = new Date().getHours();
@@ -16,6 +22,11 @@ function TodayPage() {
   const greeting = useGreeting();
   const today = useMemo(() => new Date(), []);
   const [selectedDay, setSelectedDay] = useState<Date>(today);
+  const { user } = useUser();
+  const dashboard = useQuery(
+    api.users.getUserDashboardData,
+    user?.id ? { clerkUserId: user.id } : "skip"
+  );
 
   const weekDays = useMemo(() => {
     const start = new Date(today);
@@ -34,6 +45,12 @@ function TodayPage() {
         <h1 className="text-center text-lg font-semibold tracking-tight md:text-xl">
           {greeting}
         </h1>
+        {/* User Streaks */}
+        {dashboard === undefined ? (
+          <StreakWidgetSkeleton />
+        ) : (
+          <StreakWidget streak={dashboard?.streakData} />
+        )}
         {/* Week scroller */}
         <div className="mx-auto w-full max-w-4xl overflow-x-auto rounded-md border border-zinc-800 bg-transparent text-zinc-200">
           <div className="flex min-w-[52rem] text-xs">

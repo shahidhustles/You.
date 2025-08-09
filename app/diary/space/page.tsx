@@ -1,16 +1,7 @@
 "use client";
 import React from "react";
-import {
-  PenLine,
-  Brain,
-  Heart,
-  Wind,
-  Leaf,
-  Feather,
-  Sun,
-  Smile,
-  Target,
-} from "lucide-react";
+import { Wind, Leaf, ChevronRight } from "lucide-react";
+import GlareHover from "@/components/ui/glare-hover";
 import { motion } from "motion/react";
 
 type LibraryCard = {
@@ -31,48 +22,41 @@ const LibraryPage = () => {
       key: "daily",
       title: "Daily Check-In",
       description: "Pen to page reflections.",
-      icon: <PenLine className="size-9" />,
     },
     {
       key: "gratitude",
       title: "Gratitude",
       description: "Capture today's thanks.",
-      icon: <Sun className="size-9" />,
     },
     {
       key: "mood",
       title: "Mood Log",
       description: "Track how you feel.",
-      icon: <Smile className="size-9" />,
     },
     {
       key: "goals",
       title: "Goals",
       description: "Set intentions & aims.",
-      icon: <Target className="size-9" />,
     },
     {
       key: "arts",
+      //TODO : name it something fancy
       title: "Arts & Crafts",
       description: "",
-      icon: <Feather className="size-9" />,
     },
     {
       key: "memories",
       title: "Memories &\nMilestones",
       description: "Journals for every chapter\nof your life.",
-      icon: <Heart className="size-9" />,
     },
     {
       key: "philosophy",
       title: "Philosophy &\nBig Thoughts",
-      icon: <Brain className="size-9" />,
     },
     {
       key: "connections",
       title: "Connections",
       description: "Write about people who\nshape your life.",
-      icon: <Heart className="size-9" />,
     },
     {
       key: "breathing",
@@ -120,48 +104,56 @@ const LibraryPage = () => {
 };
 
 const LibraryGridCard = ({ data }: { data: LibraryCard }) => {
-  const { title, description, span, icon } = data;
+  const { key, title, description, span, icon } = data;
+  const centerIcon = !!icon && (key === "breathing" || key === "meditation");
   return (
-    <motion.button
-      layout
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.97 }}
-      className={`${baseCardClasses} flex flex-col items-start justify-between p-6 text-left ${span ?? ""}`}
+    <GlareHover
+      width="100%"
+      height="100%"
+      background="rgba(9,9,11,0.7)"
+      borderRadius="1rem"
+      borderColor="#27272a"
+      className={`${baseCardClasses} place-items-stretch ${span ?? ""}`}
     >
-      <div className="space-y-3">
-        <motion.h3
-          layout
-          className="whitespace-pre-line text-lg font-semibold leading-snug tracking-tight"
-        >
-          {title}
-        </motion.h3>
-        {description && (
-          <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-400">
-            {description}
-          </p>
-        )}
-      </div>
-
-      {/* Icon */}
-      <div className="relative mt-4 h-14 w-full">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="absolute bottom-0 left-0 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-800/50 text-zinc-300 group-hover:bg-zinc-700/60"
-        >
-          {icon}
-        </motion.div>
-        <motion.div
-          className="pointer-events-none absolute right-2 top-2 text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100"
-          initial={false}
-          animate={{ x: [0, 4, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-        >
-          →
-        </motion.div>
-      </div>
-    </motion.button>
+      <motion.button
+        layout
+        whileHover={{ y: -4 }}
+        whileTap={{ scale: 0.97 }}
+        className="flex h-full w-full flex-col items-start justify-between bg-transparent p-6 text-left"
+      >
+        <div className="space-y-3">
+          <motion.h3
+            layout
+            className="whitespace-pre-line text-lg font-semibold leading-snug tracking-tight"
+          >
+            {title}
+          </motion.h3>
+          {description && (
+            <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-400">
+              {description}
+            </p>
+          )}
+        </div>
+        <div className="relative mt-4 h-14 w-full">
+          {icon && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className={`pointer-events-none absolute flex h-14 w-14 items-center justify-center rounded-full bg-zinc-800/30 text-zinc-400/60 opacity-60 transition-colors group-hover:bg-zinc-700/40 group-hover:opacity-90 ${centerIcon ? "bottom-0 left-1/2 -translate-x-1/2" : "bottom-0 right-0"}`}
+            >
+              {icon}
+            </motion.div>
+          )}
+          <motion.div
+            className="pointer-events-none absolute right-2 top-2 text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100"
+            initial={false}
+          >
+            <ChevronRight className="size-4" />
+          </motion.div>
+        </div>
+      </motion.button>
+    </GlareHover>
   );
 };
 
