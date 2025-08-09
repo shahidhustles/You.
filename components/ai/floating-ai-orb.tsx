@@ -19,15 +19,6 @@ interface CallStartSuccessEvent {
   timestamp: string;
 }
 
-interface VapiMessage {
-  type?: string;
-  call?: {
-    id: string;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-}
-
 /**
  * Floating AI Orb pinned to bottom-right.
  * Usage: render inside any layout/page; it will stay fixed.
@@ -37,7 +28,6 @@ const FloatingAIOrb: React.FC<FloatingAIOrbProps> = ({
   className,
 }) => {
   const [micOn, setMicOn] = React.useState(true);
-  const [journalMode, setJournalMode] = React.useState(false);
   const [isCallActive, setIsCallActive] = React.useState(false);
   const [vapi, setVapi] = React.useState<Vapi | null>(null);
   const [sessionId, setSessionId] = React.useState<string | null>(null);
@@ -59,11 +49,11 @@ const FloatingAIOrb: React.FC<FloatingAIOrbProps> = ({
       setIsCallActive(true);
     });
 
-    vapiInstance.on("call-end", () => {
+    vapiInstance.on("call-end", async () => {
       console.log("Call has ended.");
       setIsCallActive(false);
       setMicOn(true); // Reset mic state
-      // Keep session ID for potential journal saving after call ends
+      // Session ID is kept only for debugging display
     });
 
     // Listen for call-start-success event to get the real call ID
@@ -75,15 +65,7 @@ const FloatingAIOrb: React.FC<FloatingAIOrbProps> = ({
       }
     });
 
-    // Listen for messages that might contain call information
-    vapiInstance.on("message", (message: VapiMessage) => {
-      console.log("Message received:", message);
-      // Some message types might contain call-related information
-      if (message.call?.id) {
-        console.log("Call ID from message:", message.call.id);
-        setSessionId(message.call.id);
-      }
-    });
+    // Messages can be handled here if needed for chat UX
 
     vapiInstance.on("speech-start", () => {
       console.log("Speech started");
@@ -144,14 +126,7 @@ const FloatingAIOrb: React.FC<FloatingAIOrbProps> = ({
     }
   };
 
-  // Save session when journal mode is enabled and we have a session
-  React.useEffect(() => {
-    if (journalMode && sessionId && isCallActive) {
-      console.log("Saving session for journal:", sessionId);
-      // TODO: Implement saving session to your backend/database
-      // For now, we'll just log it
-    }
-  }, [journalMode, sessionId, isCallActive]);
+  // No journaling or transcript fetching; this orb is chat only
 
   return (
     <Dialog.Root>
@@ -225,28 +200,7 @@ const FloatingAIOrb: React.FC<FloatingAIOrbProps> = ({
                 </Button>
               </Dialog.Close>
             </div>
-            {/* Journal mode toggle with label */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={journalMode}
-                aria-label="Toggle journal mode"
-                onClick={() => setJournalMode((v) => !v)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75 ${
-                  journalMode ? "bg-indigo-600" : "bg-gray-200"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                    journalMode ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-              <span className="text-sm font-medium text-white">
-                Make it a journal entry
-              </span>
-            </div>
+            {/* No journal toggle; focused on voice chat */}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

@@ -49,9 +49,8 @@ const LibraryPage = () => {
     },
     {
       key: "arts",
-      //TODO : name it something fancy
-      title: "Arts & Crafts",
-      description: "",
+      title: "Creative Therapy",
+      description: "Express through art & creativity.",
     },
     {
       key: "memories",

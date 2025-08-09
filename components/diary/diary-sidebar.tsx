@@ -91,7 +91,7 @@ export const DiarySidebar: React.FC<DiarySidebarProps> = ({
   const [isCreatingJournal, setIsCreatingJournal] = useState(false);
   const createJournal = useMutation(api.journals.createJournal);
 
-  const displayName = `${user?.firstName} ${user?.lastName}` || firstName || "";
+  const displayName = user?.firstName || firstName || "";
 
   const handleCreateJournal = async () => {
     if (!user || isCreatingJournal) return;

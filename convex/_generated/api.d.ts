@@ -13,7 +13,9 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as breathing from "../breathing.js";
 import type * as journals from "../journals.js";
+import type * as meditation from "../meditation.js";
 import type * as users from "../users.js";
 
 /**
@@ -25,7 +27,9 @@ import type * as users from "../users.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  breathing: typeof breathing;
   journals: typeof journals;
+  meditation: typeof meditation;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

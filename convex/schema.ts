@@ -122,4 +122,28 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_clerk_user_id", ["clerkUserId"]),
+
+  // Daily meditation aggregate per user (UTC date)
+  meditationDaily: defineTable({
+    clerkUserId: v.string(),
+    date: v.string(), // YYYY-MM-DD UTC
+    minutes: v.number(), // total minutes meditated this day
+    sessions: v.number(), // number of sessions this day
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_date", ["clerkUserId", "date"]) // for quick upsert
+    .index("by_clerk_user_id", ["clerkUserId"]),
+
+  // Daily breathing aggregate per user (UTC date)
+  breathingDaily: defineTable({
+    clerkUserId: v.string(),
+    date: v.string(), // YYYY-MM-DD UTC
+    minutes: v.number(), // total minutes of breathing exercises this day
+    sessions: v.number(), // number of sessions this day
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_date", ["clerkUserId", "date"]) // for quick upsert
+    .index("by_clerk_user_id", ["clerkUserId"]),
 });

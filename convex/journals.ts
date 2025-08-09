@@ -304,3 +304,31 @@ async function updateUserStreakForToday(ctx: MutationCtx, clerkUserId: string) {
     updatedAt: now,
   });
 }
+
+// Get journals for a specific date range (for journey timeline)
+export const getJournalsByDateRange = query({
+  args: {
+    userId: v.string(),
+    startDate: v.string(), // YYYY-MM-DD format
+    endDate: v.string(), // YYYY-MM-DD format
+  },
+  handler: async (ctx, args) => {
+    const startTime = new Date(args.startDate).getTime();
+    const endTime = new Date(args.endDate).getTime() + 24 * 60 * 60 * 1000; // End of the day
+
+    const journals = await ctx.db
+      .query("journalEntries")
+      .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", args.userId))
+      .filter((q) =>
+        q.and(
+          q.gte(q.field("createdAt"), startTime),
+          q.lt(q.field("createdAt"), endTime),
+          q.eq(q.field("isDraft"), false) // Only published journals
+        )
+      )
+      .order("desc")
+      .collect();
+
+    return journals;
+  },
+});

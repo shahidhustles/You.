@@ -9,9 +9,10 @@ import React, {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ChevronLeft, Pause, Play, RotateCcw } from "lucide-react";
-// Using a built-in circular timer instead of the Threads animation
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
 
 const clampNumber = (n: number, min: number, max: number) =>
   Math.max(min, Math.min(max, n));
@@ -19,6 +20,14 @@ const clampNumber = (n: number, min: number, max: number) =>
 function MeditationInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const { user } = useUser();
+  const createJournal = useMutation(api.journals.createJournal);
+  const saveJournalContent = useMutation(api.journals.saveJournalContent);
+  const logMeditation = useMutation(api.meditation.logSession);
+  const dashboard = useQuery(
+    api.users.getUserDashboardData,
+    user?.id ? { clerkUserId: user.id } : "skip"
+  );
 
   // Minutes can also be provided via query param ?minutes=10
   const [minutes, setMinutes] = useState(() => {
@@ -28,10 +37,13 @@ function MeditationInner() {
 
   const totalMs = useMemo(() => minutes * 60 * 1000, [minutes]);
 
+  // UI mode: setup (pre-session) or timer
+  const [mode, setMode] = useState<"setup" | "timer">("setup");
   const [running, setRunning] = useState(false);
   const [ended, setEnded] = useState(false);
   const [remainingMs, setRemainingMs] = useState(totalMs);
   const endAtRef = useRef<number | null>(null);
+  const loggedRef = useRef(false);
 
   // Format mm:ss
   const fmt = (ms: number) => {
@@ -48,6 +60,7 @@ function MeditationInner() {
     setEnded(false);
     setRemainingMs(totalMs);
     endAtRef.current = null;
+    loggedRef.current = false;
   }, [totalMs]);
 
   // Keep remaining in sync when minutes change
@@ -82,7 +95,43 @@ function MeditationInner() {
       endAtRef.current = Date.now() + Math.max(0, remainingMs);
     }
     setRunning(true);
+    setMode("timer");
   }, [remainingMs, running]);
+
+  // Mark streak on first Start click per day using existing journal flow; avoid duplicates via localStorage
+  useEffect(() => {
+    if (!running) return;
+    const uid = user?.id;
+    if (!uid) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const key = `streak-marked-${uid}-meditation-${today}`;
+    if (localStorage.getItem(key)) return;
+    const alreadyToday = dashboard?.streakData?.lastEntryDate === today;
+    const mark = async () => {
+      try {
+        if (alreadyToday) {
+          localStorage.setItem(key, "1");
+          return;
+        }
+        const journalId = await createJournal({
+          userId: uid,
+          title: "Meditation Session",
+          prompt: "Meditation",
+          isCustomPrompt: true,
+        });
+        await saveJournalContent({
+          journalId,
+          content: [],
+          wordCount: 0,
+          isDraft: false,
+          userId: uid,
+        });
+        localStorage.setItem(key, "1");
+      } catch {}
+    };
+    void mark();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, user?.id]);
 
   const pause = useCallback(() => {
     if (!running) return;
@@ -102,6 +151,15 @@ function MeditationInner() {
     }
   }, [running, remainingMs]);
 
+  // When a session ends, log minutes to Convex once
+  useEffect(() => {
+    if (!ended || loggedRef.current) return;
+    const uid = user?.id;
+    if (!uid) return;
+    loggedRef.current = true;
+    void logMeditation({ clerkUserId: uid, minutes });
+  }, [ended, logMeditation, minutes, user?.id]);
+
   // Progress percent (0..1)
   const progress = useMemo(() => {
     if (totalMs <= 0) return 0;
@@ -109,20 +167,9 @@ function MeditationInner() {
     return clampNumber(done / totalMs, 0, 1);
   }, [remainingMs, totalMs]);
 
-  const disabled = running;
-
   return (
-    <main className="relative h-screen w-full overflow-y-auto px-4 py-6 md:px-8">
-      {/* Background video (place your meditation file as /bg-meditation.webm and/or /bg-meditation.mp4)
-      <BackgroundVideoMeditation /> */}
-      {/* Top progress bar */}
-      <div className="pointer-events-none fixed left-0 right-0 top-0 z-10 h-1 bg-zinc-900/60">
-        <div
-          className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 transition-[width] duration-200 ease-linear"
-          style={{ width: `${progress * 100}%` }}
-        />
-      </div>
-
+    <main className="relative min-h-screen w-full overflow-y-auto px-4 py-6 md:px-8">
+      {/* Header */}
       <div className="relative z-10 mb-6 flex items-center gap-3">
         <Button
           variant="ghost"
@@ -136,66 +183,67 @@ function MeditationInner() {
         </h1>
       </div>
 
-      <div className="relative z-10 grid gap-8 md:grid-cols-[1fr,420px]">
-        {/* Left: Circular countdown timer */}
-        <section className="flex min-h-[420px] items-center justify-center rounded-2xl border border-zinc-800 bg-transparent p-6">
-          <CircularTimer
-            remainingMs={Math.max(0, remainingMs)}
-            progress={progress}
-            running={running}
-            ended={ended}
-            fmt={fmt}
-          />
-        </section>
-
-        {/* Right: Timer controls */}
-        <section className="space-y-5 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-6">
-          <div className="grid grid-cols-2 gap-4">
-            <label className="col-span-2 text-sm text-zinc-400">
-              Total duration (minutes)
-            </label>
-            <Input
-              type="number"
-              min={1}
-              max={180}
-              step={1}
-              value={minutes}
-              onChange={(e) =>
-                setMinutes(clampNumber(Number(e.target.value || 0), 1, 180))
-              }
-              disabled={disabled}
-              className="col-span-2"
+      {mode === "setup" ? (
+        <SetupScreen
+          minutes={minutes}
+          setMinutes={setMinutes}
+          onStart={start}
+        />
+      ) : (
+        <>
+          {/* Top progress bar */}
+          <div className="pointer-events-none fixed left-0 right-0 top-0 z-10 h-1 bg-zinc-900/60">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 transition-[width] duration-200 ease-linear"
+              style={{ width: `${progress * 100}%` }}
             />
+          </div>
 
-            <div className="col-span-2 flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
-              <div className="text-sm text-zinc-400">Time remaining</div>
-              <div className="font-mono text-lg text-zinc-200">
-                {fmt(remainingMs)}
+          <div className="relative z-10 grid gap-8 md:grid-cols-1">
+            {/* Circular countdown timer - Full width when meditating */}
+            <section className="flex min-h-[420px] items-center justify-center rounded-2xl border border-zinc-800 bg-transparent p-6">
+              <CircularTimer
+                remainingMs={Math.max(0, remainingMs)}
+                progress={progress}
+                running={running}
+                ended={ended}
+                fmt={fmt}
+              />
+            </section>
+
+            {/* Timer controls - centered below */}
+            <section className="flex justify-center">
+              <div className="rounded-2xl  bg-zinc-950/70 p-6">
+                <div className="flex items-center justify-between rounded-md  bg-zinc-900/40 p-4 mb-4">
+                  <div className="text-sm text-zinc-400 mr-2">Time remaining</div>
+                  <div className="font-mono text-2xl text-zinc-200">
+                    {fmt(remainingMs)}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-3">
+                  {!running ? (
+                    <Button onClick={start} className="gap-2">
+                      <Play className="size-4" /> Start
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      onClick={pause}
+                      className="gap-2"
+                    >
+                      <Pause className="size-4" /> Pause
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={reset} className="gap-2">
+                    <RotateCcw className="size-4" /> Reset
+                  </Button>
+                </div>
               </div>
-            </div>
+            </section>
           </div>
-
-          <div className="flex items-center gap-3 pt-2">
-            {!running ? (
-              <Button onClick={start} className="gap-2">
-                <Play className="size-4" /> Start
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={pause} className="gap-2">
-                <Pause className="size-4" /> Pause
-              </Button>
-            )}
-            <Button variant="outline" onClick={reset} className="gap-2">
-              <RotateCcw className="size-4" /> Reset
-            </Button>
-          </div>
-
-          <div className="pt-2 text-xs text-zinc-500">
-            Tip: You can prefill via query param, e.g.{" "}
-            <span className="font-mono">?minutes=15</span>
-          </div>
-        </section>
-      </div>
+        </>
+      )}
     </main>
   );
 }
@@ -283,6 +331,106 @@ function CircularTimer({
         <div className="mt-1 text-xs text-zinc-400">
           {ended ? "Done" : running ? "In session" : "Paused"}
         </div>
+      </div>
+    </div>
+  );
+}
+
+type SetupProps = {
+  minutes: number;
+  setMinutes: (n: number) => void;
+  onStart: () => void;
+};
+
+function SetupScreen({ minutes, setMinutes, onStart }: SetupProps) {
+  return (
+    <section className="mx-auto max-w-5xl">
+      {/* Big minutes number */}
+      <div className="mt-2 flex flex-col items-center justify-center">
+        <div className="text-6xl font-extrabold text-zinc-100">{minutes}</div>
+        <div className="-mt-1 text-sm uppercase tracking-widest text-zinc-400">
+          min
+        </div>
+      </div>
+
+      {/* Ruler style slider */}
+      <div className="relative mx-auto mt-6 max-w-3xl select-none px-4">
+        <RulerSlider value={minutes} onChange={setMinutes} min={1} max={60} />
+      </div>
+
+      {/* How to */}
+      <div className="mt-16 grid gap-4 px-2 md:px-4">
+        <h2 className="text-3xl font-bold text-zinc-100">How to</h2>
+        <ol className="space-y-3 text-lg text-zinc-300">
+          <li>
+            <span className="font-semibold text-zinc-100">1.</span> Sit or lie
+            comfortably.
+          </li>
+          <li>
+            <span className="font-semibold text-zinc-100">2.</span> Close your
+            eyes.
+          </li>
+          <li>
+            <span className="font-semibold text-zinc-100">3.</span> Breathe
+            naturally and make no effort to control it.
+          </li>
+          <li>
+            <span className="font-semibold text-zinc-100">4.</span> Focus
+            attention on the breath and how the body moves with each inhale and
+            exhale.
+          </li>
+        </ol>
+
+        <div className="mt-8">
+          <Button onClick={onStart} className="h-11 px-6 text-base">
+            <Play className="mr-2 size-4" /> Start
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type RulerSliderProps = {
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
+};
+
+function RulerSlider({ value, onChange, min = 1, max = 60 }: RulerSliderProps) {
+  const ticks: number[] = [];
+  for (let i = min; i <= max; i++) ticks.push(i);
+  return (
+    <div className="w-full">
+      <div className="relative mb-6 h-8">
+        {/* ticks */}
+        <div className="absolute inset-0 flex items-center">
+          <div className="h-[1px] w-full bg-zinc-800" />
+        </div>
+        <div className="absolute inset-0 flex justify-between">
+          {ticks.map((t) => (
+            <div key={t} className="flex flex-col items-center">
+              <div
+                className={`${t % 5 === 0 ? "h-4" : "h-2"} w-[2px] bg-zinc-600`}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) =>
+          onChange(clampNumber(Number(e.target.value), min, max))
+        }
+        className="w-full [--tw-shadow:0_0] [accent-color:#a78bfa]"
+      />
+      <div className="mt-2 flex justify-between text-xs text-zinc-500">
+        <span>{min}m</span>
+        <span>{max}m</span>
       </div>
     </div>
   );
