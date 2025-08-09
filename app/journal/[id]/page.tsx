@@ -43,7 +43,6 @@ export default function JournalEntryPage() {
   const updatePrompt = useMutation(api.journals.updateJournalPrompt);
   const saveContent = useMutation(api.journals.saveJournalContent);
   const updateTags = useMutation(api.journals.updateJournalTags);
-  const autoSaveContent = useMutation(api.journals.autoSaveJournalContent);
 
   // Local state
   const [promptIndex, setPromptIndex] = useState(0);
@@ -148,32 +147,10 @@ export default function JournalEntryPage() {
     return content.length * 5;
   };
 
-  const handleContentChange = useCallback(
-    (content: Block[]) => {
-      setJournalContent(content);
-
-      // Auto-save after a short delay
-      const timeoutId = setTimeout(() => {
-        if (
-          journalId &&
-          JSON.stringify(content) !== JSON.stringify(lastSavedContent)
-        ) {
-          if (user) {
-            autoSaveContent({
-              journalId,
-              content,
-              wordCount: calculateWordCount(content),
-              userId: user.id,
-            });
-          }
-          setLastSavedContent(content);
-        }
-      }, 2000);
-
-      return () => clearTimeout(timeoutId);
-    },
-    [journalId, autoSaveContent, lastSavedContent, user]
-  );
+  const handleContentChange = useCallback((content: Block[]) => {
+    // Only update local state; do not persist until Save is clicked
+    setJournalContent(content);
+  }, []);
 
   const handleTitleChange = async (newTitle: string) => {
     setTitle(newTitle);

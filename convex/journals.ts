@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 
 // Create a new journal entry
@@ -121,13 +122,21 @@ export const saveJournalContent = mutation({
       throw new Error("Journal not found or access denied");
     }
 
+    const finalIsDraft =
+      args.isDraft !== undefined ? args.isDraft : journal.isDraft;
+
     await ctx.db.patch(args.journalId, {
       content: args.content,
       wordCount: args.wordCount || 0,
-      isDraft: args.isDraft !== undefined ? args.isDraft : journal.isDraft,
+      isDraft: finalIsDraft,
       lastAutoSaved: Date.now(),
       updatedAt: Date.now(),
     });
+
+    // If entry is saved as non-draft, update streaks
+    if (!finalIsDraft) {
+      await updateUserStreakForToday(ctx, journal.clerkUserId);
+    }
   },
 });
 
@@ -237,3 +246,61 @@ export const searchUserJournals = query({
     return filtered;
   },
 });
+
+// Helpers: streak updating
+function todayUtcYmd(): string {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD in UTC
+}
+
+function yesterdayUtcYmd(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+async function updateUserStreakForToday(ctx: MutationCtx, clerkUserId: string) {
+  const today = todayUtcYmd();
+  const yesterday = yesterdayUtcYmd();
+
+  const existing = await ctx.db
+    .query("userStreaks")
+    .withIndex("by_clerk_user_id", (q) => q.eq("clerkUserId", clerkUserId))
+    .take(1);
+
+  const now = Date.now();
+
+  if (!existing || existing.length === 0) {
+    await ctx.db.insert("userStreaks", {
+      clerkUserId,
+      currentStreak: 1,
+      longestStreak: 1,
+      lastEntryDate: today,
+      achievements: [],
+      createdAt: now,
+      updatedAt: now,
+    });
+    return;
+  }
+
+  const streak = existing[0];
+
+  if (streak.lastEntryDate === today) {
+    // Already counted today
+    await ctx.db.patch(streak._id, { updatedAt: now });
+    return;
+  }
+
+  let newCurrent = 1;
+  if (streak.lastEntryDate === yesterday) {
+    newCurrent = streak.currentStreak + 1;
+  }
+
+  const newLongest = Math.max(newCurrent, streak.longestStreak ?? 0);
+
+  await ctx.db.patch(streak._id, {
+    currentStreak: newCurrent,
+    longestStreak: newLongest,
+    lastEntryDate: today,
+    updatedAt: now,
+  });
+}
