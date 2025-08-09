@@ -101,7 +101,15 @@ const LibraryPage = () => {
 
   const onCardClick = useCallback(
     async (card: LibraryCard) => {
-      if (card.key === "breathing" || card.key === "meditation") return;
+      if (card.key === "breathing") {
+        // Navigate to breathing settings/experience. You can prefill via query later.
+        router.push(`/diary/space/breathing`);
+        return;
+      }
+      if (card.key === "meditation") {
+        router.push("/diary/space/meditation");
+        return;
+      }
       if (!isLoaded || !user) return;
 
       try {

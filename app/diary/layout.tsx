@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/sidebar";
 
 import { DiarySidebar } from "@/components/diary/diary-sidebar";
+import FloatingAIOrb from "@/components/ai/floating-ai-orb";
 
 export default function DiaryLayout({
   children,
@@ -23,6 +24,8 @@ export default function DiaryLayout({
           </div>
           {children}
         </div>
+  {/* Floating AI Orb, always bottom-right */}
+  <FloatingAIOrb />
       </SidebarInset>
     </SidebarProvider>
   );

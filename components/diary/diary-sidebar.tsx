@@ -107,6 +107,7 @@ export const DiarySidebar: React.FC<DiarySidebarProps> = ({
     }
   };
   return (
+    
     <Sidebar
       collapsible="icon"
       variant="inset"
