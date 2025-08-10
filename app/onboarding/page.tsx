@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@clerk/nextjs";
 // AI feedback is requested via an internal API to avoid importing server actions in client components
 // CSS-based transition animations; no external motion lib needed
@@ -281,6 +282,31 @@ export default function OnboardingPage() {
       await completeOnboarding({ clerkUserId });
     }
     router.replace("/diary/today");
+  }
+
+  // Show loader while checking if user needs onboarding
+  if (!isClerkLoaded || !isSignedIn || needsOnboarding === undefined) {
+    return (
+      <div className="min-h-[100svh] bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 text-zinc-100">
+        <div className="mx-auto flex min-h-[100svh] w-full max-w-2xl flex-col items-center justify-center gap-6 px-6 py-10">
+          <Card>
+            <div className="flex flex-col items-center gap-4">
+              <div className="size-8 animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-100"></div>
+              <h2 className="text-xl font-medium">Checking your progress...</h2>
+              <p className="text-zinc-400 text-center">
+                We&apos;re checking if you&apos;ve already completed the
+                onboarding process.
+              </p>
+              <div className="w-full space-y-3 mt-4">
+                <Skeleton className="h-4 w-3/4 mx-auto bg-zinc-800" />
+                <Skeleton className="h-4 w-1/2 mx-auto bg-zinc-800" />
+                <Skeleton className="h-10 w-24 mx-auto bg-zinc-800" />
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   return (
